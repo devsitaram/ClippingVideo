@@ -24,7 +24,8 @@ IG_MAX_MBPS, IG_BITRATE = 20, "14M"  # Instagram rejects Reels over 25 Mbps: hea
 YT_TOKEN = DATA / "youtube_token.json"  # written by the Google sign-in
 TIKTOK_TOKEN = DATA / "tiktok_token.json"  # TikTok's refresh token rotates; the current one is kept here
 YT_COOKIES = ROOT / "cookies.txt"  # uploaded on the Socials page
-LOGO_FILE = DATA / "logo.png"  # uploaded on the Settings page (Branding); no logo is built in
+LOGO_FILE = DATA / "logo.png"  # uploaded on the Settings page (Branding)
+LOGO_DEFAULT = Path(__file__).parent / "assets" / "logo.png"  # the 2SRT badge, used when none is uploaded
 
 ASPECTS = [("0.5625", "Full screen 9:16"), ("0.8", "4:5 (thin bars)"), ("1", "Square 1:1"), ("1.7778", "Whole frame 16:9")]
 
@@ -72,7 +73,7 @@ FIELDS = [
     ("MUSIC_ON", "Branding", "Music on posts", "bool", True,
      "Posts that go up as Reels get a track from your music library (Settings → Branding → Music), picked by the AI to "
      "fit the story. Never on clips. Instagram's own music can't be added through Meta's API."),
-    ("LOGO_ON", "Branding", "Show my logo on clips", "bool", True, "Upload the logo below. No logo uploaded = none shown."),
+    ("LOGO_ON", "Branding", "Show my logo on clips", "bool", True, "Upload the logo below. No logo uploaded = the built-in 2SRT badge."),
     ("WATERMARK", "Branding", "Watermark text on clips", "str", "",
      "E.g. @yourchannel, shown faintly on every clip. Empty = none."),
     ("VOICE", "Clips", "Voice-over voice", "str", "", "A macOS 'say' / Windows voice name. Empty = system default."),
@@ -273,8 +274,8 @@ def __getattr__(name):
         if name == "FFMPEG":
             return v.strip() or _default_ffmpeg()
         return v
-    if name == "LOGO":  # your uploaded logo, or None (switched off / none uploaded): nothing is built in
-        return LOGO_FILE if get("LOGO_ON") and LOGO_FILE.exists() else None
+    if name == "LOGO":  # your uploaded logo, else the built-in 2SRT badge; None when switched off
+        return (LOGO_FILE if LOGO_FILE.exists() else LOGO_DEFAULT) if get("LOGO_ON") else None
     # The Facebook Page / Instagram account clips upload to: chosen on the Settings page from the Accounts list.
     if name in ("FB_PAGE_ID", "FB_PAGE_TOKEN"):
         a = _account(get("CLIP_FB_ACCOUNT"))

@@ -299,7 +299,7 @@ def cut(src, out, start, end, vertical, words=(), headline="", voice=(), aspect=
         bar = bar_height(aspect) if vertical else 0
         y = f"{bar}-h-24" if bar >= 200 else f"{max(bar, 230) if vertical else 0}+24"  # h = logo height
         logo_in = ["-i", str(config.LOGO.resolve())]
-        graph = f"[0:v]{vf}[v];[1:v]scale={220 if vertical else 260 if canvas == '16:9' else 180}:-1[l];[v][l]overlay=W-w-24:{y}[o]"
+        graph = f"[0:v]{vf}[v];[1:v]scale={150 if vertical else 170 if canvas == '16:9' else 130}:-1[l];[v][l]overlay=W-w-24:{y}[o]"
     vo_in, amap = [], ["-map", "0:a?"]
     if voice:
         # Each line delayed to its spot -> mixed into one narration track [vo], louder than the TTS default.

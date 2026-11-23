@@ -840,7 +840,7 @@ function stepPublish() {
     <div class="stack" id="pubWarn"></div>
     <div class="row"><label class="check"><input type="checkbox" id="pubLater" onchange="$('#pubAt').hidden=!this.checked;$('#pubGo').textContent=this.checked?'Schedule':'Publish now'"> Schedule for later</label>
       <input type="datetime-local" id="pubAt" hidden style="max-width:240px" value="${localInput(Date.now() / 1000 + 3600)}"></div>
-    <div class="row">${btn("Publish now", 'id="pubGo" onclick="publishClip(this)"', "primary")}</div>
+    <div class="row">${btn("Publish now", 'id="pubGo" onclick="publishClip(this)"', "primary")}${btn("+ New clip", 'onclick="newFlow()"', "ghost")}</div>
     <div id="pubStatus"></div></div>`;
 }
 function setPubCat(v) { flow.category = +v; flow.dests = computeDests(); saveFlow(); paintDests();
@@ -882,8 +882,7 @@ function paintPublishStatus() {
         ${u.error ? `<br><span class="sm" style="color:var(--bad)">${esc(u.error)}</span>` : ""}</span>
         ${u.id ? `<a class="btn text sm" href="${esc(u.url)}" target="_blank" rel="noopener">${pill("published", "Live")}</a>` : u.error ? pill("failed") : pill("processing", "Uploading")}</div>`).join("")}
       ${c.status === "uploading" ? `<p class="sm muted">Uploading… this can take a minute per destination.</p>` : ""}
-      <div class="row">${entries.some(([, u]) => u.error) && c.status !== "uploading" ? btn("Retry failed", `onclick="act(this, () => POST('/api/clips/${c.id}/retry'))"`, "ghost") : ""}
-        ${c.status !== "uploading" ? btn("Clip another video", 'onclick="newFlow()"', "text") : ""}</div></div>` : "";
+      <div class="row">${entries.some(([, u]) => u.error) && c.status !== "uploading" ? btn("Retry failed", `onclick="act(this, () => POST('/api/clips/${c.id}/retry'))"`, "ghost") : ""}</div></div>` : "";
   if ($("#pubStatus").dataset.html !== html) { $("#pubStatus").innerHTML = html; $("#pubStatus").dataset.html = html; }
 }
 // format/caption steps paint their live parts after the step is built

@@ -268,11 +268,23 @@ def facebook(account, path, title, caption, reel=True):
     """reel=True: a Reel (3-90 s, vertical). False: a normal Page video (any length / shape, e.g. a 4:5 feed post)."""
     page, token = account["ext_id"], account["token"]
     if not reel:
-        with open(path, "rb") as f:
-            r = _ok(httpx.post(f"https://graph-video.facebook.com/{config.GRAPH_VERSION}/{page}/videos", timeout=TIMEOUT,
-                               data={"title": title[:255], "description": caption, "access_token": token},
-                               files={"source": (path.name, f, "video/mp4")}))
-        return {"id": r["id"], "url": f"https://www.facebook.com/watch/?v={r['id']}"}
+        # Chunked (start / transfer / finish): one big POST of a 200 MB+ file gets HTTP 413 from Facebook.
+        url, data = f"https://graph-video.facebook.com/{config.GRAPH_VERSION}/{page}/videos", Path(path).read_bytes()
+        s = _ok(httpx.post(url, timeout=TIMEOUT, data={"upload_phase": "start", "file_size": len(data), "access_token": token}))
+        sid, start, end = s["upload_session_id"], int(s["start_offset"]), int(s["end_offset"])
+        while start < end:
+            for attempt in range(3):  # Facebook answers a busy moment with 503: send the piece again
+                r = httpx.post(url, timeout=CHUNK_TIMEOUT, files={"video_file_chunk": ("chunk", data[start:end], "video/mp4")},
+                               data={"upload_phase": "transfer", "upload_session_id": sid, "start_offset": start,
+                                     "access_token": token})
+                if r.status_code < 500 or attempt == 2:
+                    break
+                time.sleep(10 * (attempt + 1))
+            r = _ok(r)
+            start, end = int(r["start_offset"]), int(r["end_offset"])
+        _ok(httpx.post(url, timeout=TIMEOUT, data={"upload_phase": "finish", "upload_session_id": sid, "title": title[:255],
+                                                   "description": caption, "access_token": token}))
+        return {"id": s["video_id"], "url": f"https://www.facebook.com/watch/?v={s['video_id']}"}
     reels = f"{graph()}/{page}/video_reels"
     vid = _ok(httpx.post(reels, data={"upload_phase": "start", "access_token": token}, timeout=TIMEOUT))["video_id"]
     _rupload(f"{RUPLOAD}/video-upload/{config.GRAPH_VERSION}/{vid}", token, path)

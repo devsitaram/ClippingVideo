@@ -771,7 +771,7 @@ def render_card(tpl, card, footer, out, handle="", logo=None, picture=None):
     graph, logo_in = f"{base},subtitles={ass.name}[o]", []
     if logo and Path(logo).exists():
         logo_in = ["-i", str(Path(logo).resolve())]
-        graph = f"{base},subtitles={ass.name}[v];[1:v]scale=180:-1[l];[v][l]overlay=W-w-80:H-h-60[o]"
+        graph = f"{base},subtitles={ass.name}[v];[1:v]scale=130:-1[l];[v][l]overlay=W-w-80:H-h-60[o]"
     subprocess.run([config.FFMPEG, "-y", "-loglevel", "error", *inp, *logo_in,
                     "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-q:v", "2", out.name],
                    check=True, capture_output=True, cwd=out.parent)
@@ -846,7 +846,7 @@ Format: Layer, Start, End, Style, Text
     logo_in, tail = [], f",subtitles={ass.name}[o]"
     if logo and Path(logo).exists():
         logo_in = ["-i", str(Path(logo).resolve())]
-        tail = f",subtitles={ass.name}[v];[{k}:v]scale=120:-1[l];[v][l]overlay=W-w-28:H-h-70[o]"
+        tail = f",subtitles={ass.name}[v];[{k}:v]scale=100:-1[l];[v][l]overlay=W-w-28:H-h-70[o]"
     subprocess.run([config.FFMPEG, "-y", "-loglevel", "error", *ins, *logo_in, "-filter_complex", chain + tail,
                     "-map", "[o]", "-frames:v", "1", "-q:v", "2", out.name], check=True, capture_output=True, cwd=out.parent)
     ass.unlink(missing_ok=True)
@@ -1081,10 +1081,20 @@ def publish(pid, account_ids=None):
 
 
 def create_custom(category_id, media, caption, tags=(), targets=(), publish_at=None, now=False):
-    """A post from your own photos (none = a text post on Facebook). media: saved image paths (relative to data/).
+    """A post from your own photos, each with the category's logo. No photo: one is found for the caption (images.py);
+    none found = a text post on Facebook. media: saved image paths (relative to data/).
     publish_at: a time to post at; now: post right away; neither: a draft."""
     media = [m for m in media if (DATA / m).exists()][:10]
-    pid = db.insert("posts", category_id=category_id or cats.uncategorized(), template_id=None, kind="Your post",
+    category_id = category_id or cats.uncategorized()
+    logo = category_logo(category(category_id) or {})  # the same logo its category's cards get (None = switched off)
+    if not media and caption:  # no photo: find one for it (the same picture search made posts use)
+        from . import images
+        found = images.picture(caption.strip().splitlines()[0][:100], caption[:300], DATA / "uploads" / f"found_{time.time_ns()}.jpg")
+        if found:
+            media = [stamp(str(found.relative_to(DATA)), logo, crop=True)]
+            logo = None  # already on it
+    media = [stamp(m, logo) for m in media]
+    pid = db.insert("posts", category_id=category_id, template_id=None, kind="Your post",
                     status="draft", card="", footer="", caption=str(caption or "")[:2200],
                     tags=json.dumps([str(x).lstrip("#") for x in tags][:30]), media=json.dumps(media),
                     image=media[0] if media else "", targets=json.dumps([int(x) for x in targets]),
@@ -1111,6 +1121,23 @@ def save_upload(data, aspect):
                         out.name], check=True, capture_output=True, cwd=src.parent)
     finally:
         src.unlink(missing_ok=True)
+    return str(out.relative_to(DATA))
+
+
+def stamp(rel, logo, crop=False):
+    """A photo (path relative to data/) with `logo` bottom-right like the cards; crop=True also crops it to 4:5 (a found
+    picture; uploads are already cropped). -> the new path relative to data/, or `rel` when there's nothing to do."""
+    src = DATA / rel
+    if not crop and not (logo and Path(logo).exists()):
+        return rel
+    out = src.with_name(f"{src.stem}_s{time.time_ns()}.jpg")
+    crop = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}," if crop else ""
+    inp, graph = ["-i", str(src)], f"[0:v]{crop}null[o]"
+    if logo and Path(logo).exists():
+        inp += ["-i", str(Path(logo).resolve())]
+        graph = f"[0:v]{crop}null[v];[1:v]scale=130:-1[l];[v][l]overlay=W-w-80:H-h-60[o]"
+    subprocess.run([config.FFMPEG, "-y", "-loglevel", "error", *inp, "-filter_complex", graph, "-map", "[o]",
+                    "-frames:v", "1", "-q:v", "2", str(out)], check=True, capture_output=True)
     return str(out.relative_to(DATA))
 
 
